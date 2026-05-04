@@ -1,7 +1,35 @@
+# Weather Chart Card (chrigu fork)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+
+Fork of [`mlamberts78/weather-chart-card`](https://github.com/mlamberts78/weather-chart-card)
+with the chart visuals adopted from the sibling
+[`chriguschneider/weather-station-card`](https://github.com/chriguschneider/weather-station-card)
+fork, so a forecast chart sitting next to a station chart looks identical:
+two-line tick labels (weekday + `DD/MM`), today's column framed and bolded,
+chart edges drawn with a continuous outer border.
+
+![Station and forecast side by side](images/sibling-comparison.png)
+
+> Left: [`weather-station-card`](https://github.com/chriguschneider/weather-station-card) — past 7 days, driven by sensor history.
+> Right: this card — daily forecast, driven by a `weather.*` entity.
+
+## Installation (HACS Custom Repository)
+
+1. HACS → Frontend → ⋮ → **Custom repositories**.
+2. Add `https://github.com/chriguschneider/weather-chart-card`, category **Dashboard**.
+3. Install, hard-refresh.
+
+Card type stays `custom:weather-chart-card`. The original upstream
+documentation below applies as-is for all configuration options.
+
+---
+
 <h1 align="center">Weather Chart Card</h1>
 
-# No Longer Maintained
-This repository is no longer maintained. Feel free to fork it if you find it useful.
+# Upstream is no longer maintained
+The original repository at `mlamberts78/weather-chart-card` is no longer maintained.
 
 [![Buy me a coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/mlamberts7I)
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue?logo=paypal)](https://www.paypal.com/donate/?hosted_button_id=HZUUW64FRM2J2)
