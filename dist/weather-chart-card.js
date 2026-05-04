@@ -18718,7 +18718,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
           position: 'left',
           beginAtZero: false,
           suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
-          suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 3,
+          suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 6,
           border: {
             width: 2,
             color: style.getPropertyValue('--secondary-text-color') || dividerColor,
