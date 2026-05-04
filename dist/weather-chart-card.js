@@ -18734,10 +18734,6 @@ drawChart({ config, language, weather, forecastItems } = this) {
         PrecipAxis: {
           position: 'right',
           suggestedMax: precipMax,
-          border: {
-            width: 2,
-            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
-          },
           grid: {
             display: false,
             drawTicks: false,
