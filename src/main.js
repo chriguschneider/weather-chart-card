@@ -125,8 +125,8 @@ setConfig(config) {
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
-    'https://cdn.jsdelivr.net/gh/mlamberts78/weather-chart-card/dist/icons2/':
-    'https://cdn.jsdelivr.net/gh/mlamberts78/weather-chart-card/dist/icons/' ;
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-chart-card/dist/icons2/':
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-chart-card/dist/icons/' ;
 
   this.config = cardConfig;
   if (!config.entity) {
@@ -571,6 +571,19 @@ drawChart({ config, language, weather, forecastItems } = this) {
   const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
 
   if (config.forecast.style === 'style2') {
+    const todayBoldFont = (context) => {
+      const dt = data.dateTime[context.dataIndex];
+      const k = dt ? new Date(dt) : null;
+      if (k) k.setHours(0, 0, 0, 0);
+      const t = new Date(); t.setHours(0, 0, 0, 0);
+      const isToday = k && k.getTime() === t.getTime();
+      return {
+        size: parseInt(config.forecast.labels_font_size) + 1,
+        lineHeight: 0.7,
+        weight: isToday ? 'bold' : 'normal',
+      };
+    };
+
     datasets[0].datalabels = {
       display: function (context) {
         return 'true';
@@ -583,10 +596,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
       color: chart_text_color || config.forecast.temperature1_color,
-      font: {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-      },
+      font: todayBoldFont,
     };
 
     datasets[1].datalabels = {
@@ -601,15 +611,102 @@ drawChart({ config, language, weather, forecastItems } = this) {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
       color: chart_text_color || config.forecast.temperature2_color,
-      font: {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-      },
+      font: todayBoldFont,
     };
   }
 
+  // Plugin: draws thicker vertical lines at the left and right edges of
+  // today's column. Combined with the chart's TempAxis / PrecipAxis
+  // borders this frames today regardless of where it sits in the
+  // forecast (leftmost for a future-only forecast, middle for mixed,
+  // rightmost for past-only).
+  const todayBorderPlugin = {
+    id: 'todayBorder',
+    afterDraw(chart) {
+      if (config.forecast.type === 'hourly') return;
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks || xScale.ticks.length < 2) return;
+      const todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
+      let todayIdx = -1;
+      for (let i = 0; i < data.dateTime.length; i++) {
+        const dt = data.dateTime[i];
+        if (!dt) continue;
+        const k = new Date(dt); k.setHours(0, 0, 0, 0);
+        if (k.getTime() === todayMs) { todayIdx = i; break; }
+      }
+      if (todayIdx < 0) return;
+      const { top, bottom } = chart.chartArea;
+      const c = chart.ctx;
+      c.save();
+      c.strokeStyle = style.getPropertyValue('--secondary-text-color') || dividerColor;
+      c.lineWidth = 2;
+      if (todayIdx > 0) {
+        const x = (xScale.getPixelForTick(todayIdx - 1) + xScale.getPixelForTick(todayIdx)) / 2;
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bottom);
+        c.stroke();
+      }
+      if (todayIdx < xScale.ticks.length - 1) {
+        const x = (xScale.getPixelForTick(todayIdx) + xScale.getPixelForTick(todayIdx + 1)) / 2;
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bottom);
+        c.stroke();
+      }
+      c.restore();
+    },
+  };
+
+  // Plugin: replaces Chart.js's daily tick labels so weekday and date
+  // can render in different colours and today's weekday can be bold.
+  // Chart.js still draws the original two-line label first (we need it
+  // to so the axis reserves height for two lines); the plugin masks
+  // that area and repaints weekday on top, date below.
+  const dailyTickLabelsPlugin = {
+    id: 'dailyTickLabels',
+    afterDraw(chart) {
+      if (config.forecast.type === 'hourly') return;
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const c = chart.ctx;
+      const fontSize = parseInt(config.forecast.labels_font_size) || 11;
+      const lineH = Math.ceil(fontSize * 1.3);
+      const weekdayColor = config.forecast.chart_datetime_color || textColor;
+      const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
+      const todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
+      c.save();
+      c.textAlign = 'center';
+      c.textBaseline = 'bottom';
+      for (let i = 0; i < xScale.ticks.length; i++) {
+        const x = xScale.getPixelForTick(i);
+        const datetime = data.dateTime[i];
+        if (!datetime) continue;
+        const d = new Date(datetime);
+        const dKey = (() => { const k = new Date(d); k.setHours(0,0,0,0); return k.getTime(); })();
+        const isToday = dKey === todayMs;
+        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+        const dateLabel = d.toLocaleDateString(language, {
+          day: '2-digit',
+          month: '2-digit',
+        });
+        const colW = (xScale.width / xScale.ticks.length);
+        c.fillStyle = backgroundColor;
+        c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
+        c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+        c.fillStyle = dateColor;
+        c.fillText(dateLabel, x, xScale.bottom - 2);
+        c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
+        c.fillStyle = weekdayColor;
+        c.fillText(weekday, x, xScale.bottom - 2 - lineH);
+      }
+      c.restore();
+    },
+  };
+
   this.forecastChart = new Chart(ctx, {
     type: 'bar',
+    plugins: [todayBorderPlugin, dailyTickLabelsPlugin],
     data: {
       labels: data.dateTime,
       datasets: datasets,
@@ -660,7 +757,8 @@ drawChart({ config, language, weather, forecastItems } = this) {
 
                   if (config.forecast.type !== 'hourly') {
                       var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-                      return weekday;
+                      var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
+                      return [weekday, dateLabel];
                   }
 
                   time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
@@ -674,6 +772,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
           beginAtZero: false,
           suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
           suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 3,
+          border: {
+            width: 2,
+            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
+          },
           grid: {
             display: false,
             drawTicks: false,
@@ -685,6 +787,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
         PrecipAxis: {
           position: 'right',
           suggestedMax: precipMax,
+          border: {
+            width: 2,
+            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
+          },
           grid: {
             display: false,
             drawTicks: false,
@@ -705,9 +811,17 @@ drawChart({ config, language, weather, forecastItems } = this) {
           borderWidth: 1.5,
           padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 3 : 4,
           color: chart_text_color || textColor,
-          font: {
-            size: config.forecast.labels_font_size,
-            lineHeight: 0.7,
+          font: function (context) {
+            const dt = data.dateTime[context.dataIndex];
+            const k = dt ? new Date(dt) : null;
+            if (k) k.setHours(0, 0, 0, 0);
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            const isToday = k && k.getTime() === t.getTime();
+            return {
+              size: parseInt(config.forecast.labels_font_size) || 11,
+              lineHeight: 0.7,
+              weight: isToday ? 'bold' : 'normal',
+            };
           },
           formatter: function (value, context) {
             return context.dataset.data[context.dataIndex] + '°';
